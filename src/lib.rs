@@ -73,36 +73,38 @@ use std::ffi::CStr;
 use std::os::raw::c_void;
 use std::time::Instant;
 
-struct GlfwClipboardBackend(*mut c_void);
-
-impl imgui::ClipboardBackend for GlfwClipboardBackend {
-    fn get(&mut self) -> Option<imgui::ImString> {
-        let char_ptr = unsafe { glfw::ffi::glfwGetClipboardString(self.0 as *mut GLFWwindow) };
-        let c_str = unsafe { CStr::from_ptr(char_ptr) };
-        Some(imgui::ImString::new(c_str.to_str().unwrap()))
-    }
-
-    fn set(&mut self, value: &imgui::ImStr) {
-        unsafe {
-            glfw::ffi::glfwSetClipboardString(self.0 as *mut GLFWwindow, value.as_ptr());
-        };
-    }
-}
+// struct GlfwClipboardBackend(*mut c_void);
+//
+// impl imgui::ClipboardBackend for GlfwClipboardBackend {
+//     fn get(&mut self) -> Option<imgui::ImString> {
+//         let char_ptr = unsafe { glfw::ffi::glfwGetClipboardString(self.0 as *mut GLFWwindow) };
+//         let c_str = unsafe { CStr::from_ptr(char_ptr) };
+//         Some(imgui::ImString::new(c_str.to_str().unwrap()))
+//     }
+//
+//     fn set(&mut self, value: &imgui::ImStr) {
+//         unsafe {
+//             glfw::ffi::glfwSetClipboardString(self.0 as *mut GLFWwindow, value.as_ptr());
+//         };
+//     }
+// }
 
 pub struct ImguiGLFW {
     last_frame: Instant,
     mouse_press: [bool; 5],
     cursor_pos: (f64, f64),
     cursor: (MouseCursor, Option<StandardCursor>),
-
     renderer: Renderer,
 }
 
 impl ImguiGLFW {
+    pub fn get_renderer(&self) -> &Renderer {
+        return &self.renderer;
+    }
     pub fn new(imgui: &mut Context, window: &mut Window) -> Self {
         unsafe {
-            let window_ptr = glfw::ffi::glfwGetCurrentContext() as *mut c_void;
-            imgui.set_clipboard_backend(Box::new(GlfwClipboardBackend(window_ptr)));
+            // let window_ptr = glfw::ffi::glfwGetCurrentContext() as *mut c_void;
+            // imgui.set_clipboard_backend((GlfwClipboardBackend(window_ptr)));
         }
 
         let mut io_mut = imgui.io_mut();
@@ -173,7 +175,7 @@ impl ImguiGLFW {
         }
     }
 
-    pub fn frame<'a>(&mut self, window: &mut Window, imgui: &'a mut Context) -> imgui::Ui<'a> {
+    pub fn frame(&'static mut self, window: &mut Window, imgui: &'static mut Context) -> &mut Ui {
         let io = imgui.io_mut();
 
         let now = Instant::now();
@@ -183,12 +185,14 @@ impl ImguiGLFW {
         io.delta_time = delta_s;
 
         let window_size = window.get_size();
+        println!("Window Size: {:?}", window_size);
         io.display_size = [window_size.0 as f32, window_size.1 as f32];
 
-        imgui.frame()
+        let ui = imgui.frame();
+        return ui;
     }
 
-    pub fn draw<'ui>(&mut self, ui: Ui<'ui>, window: &mut Window) {
+    pub fn draw<'ui>(&mut self, ui: &mut Ui, window: &mut Window) {
         let io = ui.io();
         if !io
             .config_flags
@@ -196,7 +200,7 @@ impl ImguiGLFW {
         {
             match ui.mouse_cursor() {
                 Some(mouse_cursor) if !io.mouse_draw_cursor => {
-                    window.set_cursor_mode(glfw::CursorMode::Normal);
+                    // window.set_cursor_mode(glfw::CursorMode::Normal);
 
                     let cursor = match mouse_cursor {
                         MouseCursor::TextInput => StandardCursor::IBeam,
@@ -215,12 +219,10 @@ impl ImguiGLFW {
                 _ => {
                     self.cursor.0 = MouseCursor::Arrow;
                     self.cursor.1 = None;
-                    window.set_cursor_mode(glfw::CursorMode::Hidden);
+                    // window.set_cursor_mode(glfw::CursorMode::Hidden);
                 }
             }
         }
-
-        self.renderer.render(ui);
     }
 
     fn set_mod(imgui: &mut Context, modifier: Modifiers) {
